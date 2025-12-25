@@ -1,6 +1,6 @@
 module github.com/grekovkat/gea-hw/hw02_unpack_string
 
-go 1.25.5
+go 1.23
 
 require github.com/stretchr/testify v1.11.1
 
