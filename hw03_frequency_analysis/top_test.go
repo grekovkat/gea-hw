@@ -1,13 +1,15 @@
 package hw03frequencyanalysis
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 // Change to true if needed.
-var taskWithAsteriskIsCompleted = false
+// var taskWithAsteriskIsCompleted = false.
 
 var text = `Как видите, он  спускается  по  лестнице  вслед  за  своим
 	другом   Кристофером   Робином,   головой   вниз,  пересчитывая
@@ -79,4 +81,91 @@ func TestTop10(t *testing.T) {
 			require.Equal(t, expected, Top10(text))
 		}
 	})
+}
+
+// тест с Mock.
+// структура для подделки логгера.
+type mockLogger struct {
+	mock.Mock
+}
+
+// реализуем интерфейс логгера.
+func (m *mockLogger) Fatalf(format string, v ...any) {
+	// фиксируем вызов.
+	m.Called(format, v)
+}
+
+func TestSafeRegexCompile(t *testing.T) {
+	testCases := []struct {
+		name        string
+		wordPattern string
+		isValid     bool
+	}{
+		{
+			name:        "invalid pattern",
+			wordPattern: "[invalid",
+			isValid:     false,
+		},
+		{
+			name:        "valid pattern",
+			wordPattern: `^[^\p{L}]+|[^\p{L}]+$`,
+			isValid:     true,
+		},
+	}
+
+	for _, tc := range testCases {
+		// создаем поддельный логер.
+		fakeLogger := &mockLogger{}
+
+		if tc.isValid {
+			regexpr := SafeRegexCompile(tc.wordPattern, fakeLogger)
+			require.NotNil(t, regexpr)
+
+			fakeLogger.AssertNotCalled(t, "Fatalf", mock.Anything, mock.Anything)
+		} else {
+			// настраиваем ожидания.
+			fakeLogger.On("Fatalf", "regexp compile: %v", mock.Anything).Once()
+
+			// вызов.
+			regexpr := SafeRegexCompile(tc.wordPattern, fakeLogger)
+			require.Nil(t, regexpr)
+
+			fakeLogger.AssertExpectations(t)
+		}
+	}
+}
+
+func TestValid(t *testing.T) {
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{name: "unicode", input: "🙃"},
+		{name: "digit", input: "10"},
+		{name: "multy dashe", input: "-------"},
+		{name: "one dashe", input: "-"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				_ = Top10(tc.input)
+			})
+		})
+
+		t.Run("ExtractWords no words error: "+tc.name, func(t *testing.T) {
+			_, err := ExtractWords(tc.input, "")
+
+			if !taskWithAsteriskIsCompleted {
+				require.Falsef(t, errors.Is(err, ErrNoWords), "actual error: %q", err)
+			} else {
+				switch tc.name {
+				case "multy dashe":
+					require.Falsef(t, errors.Is(err, ErrNoWords), "actual error: %q", err)
+				default:
+					require.Truef(t, errors.Is(err, ErrNoWords), "actual error: %q", err)
+				}
+			}
+		})
+	}
 }
