@@ -48,4 +48,35 @@ func TestList(t *testing.T) {
 		}
 		require.Equal(t, []int{70, 80, 60, 40, 10, 30, 50}, elems)
 	})
+
+	t.Run("single element remove", func(t *testing.T) {
+		l := NewList()
+		l.PushFront(10)
+		l.Remove(l.Front())
+
+		require.Equal(t, 0, l.Len())
+	})
+
+	t.Run("different types", func(t *testing.T) {
+		l := NewList()
+
+		l.PushFront(1)      // [1].
+		l.PushBack("два")   // [1 "два"].
+		l.PushBack("three") // [1 "два" "three"].
+		l.PushBack("🙂🙂🙂🙂")  // [1 "два" "three" "🙂🙂🙂🙂"].
+		l.PushBack(true)    // [1 "два" "three" "🙂🙂🙂🙂" true].
+
+		require.Equal(t, 5, l.Len())
+		require.IsType(t, bool(false), l.Back().Value)
+		require.True(t, l.Back().Value.(bool))
+
+		l.MoveToFront(l.Back().Prev)
+		require.Equal(t, "🙂🙂🙂🙂", l.Front().Value)
+
+		l.Remove(l.Back())
+		require.Equal(t, "three", l.Back().Value)
+		l.Remove(l.Back())
+		l.Remove(l.Back())
+		require.Equal(t, []interface{}{"🙂🙂🙂🙂", 1}, []interface{}{l.Front().Value, l.Front().Next.Value})
+	})
 }
