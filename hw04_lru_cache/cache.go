@@ -26,7 +26,7 @@ func NewCache(capacity int) Cache {
 	return &lruCache{
 		capacity: capacity,
 		queue:    NewList(),
-		//mu уже готов к использованию, после объявления присаиваются нулевые значения
+		// mu уже готов к использованию, после объявления присаиваются нулевые значения.
 		items: make(map[Key]*ListItem, capacity),
 	}
 }
@@ -36,8 +36,8 @@ func (cache *lruCache) Set(key Key, value interface{}) bool {
 	var wasInCache bool
 	var itemValue cacheItem
 
-	cache.mu.Lock()         //залочили на запись
-	defer cache.mu.Unlock() //разблочим после
+	cache.mu.Lock()         // залочили на запись.
+	defer cache.mu.Unlock() // разблочим после.
 
 	itemValue.key = key
 	itemValue.value = value
@@ -75,9 +75,8 @@ func (cache *lruCache) Set(key Key, value interface{}) bool {
 
 // Получить значение из кэша по ключу.
 func (cache *lruCache) Get(key Key) (interface{}, bool) {
-
-	cache.mu.Lock()         //залочили на чтение
-	defer cache.mu.Unlock() //отпустили после
+	cache.mu.Lock()         // залочили на чтение.
+	defer cache.mu.Unlock() // отпустили после.
 
 	item, wasInCache := cache.items[key]
 
