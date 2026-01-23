@@ -1,5 +1,7 @@
 package hw04lrucache
 
+import "sync"
+
 type Cache interface {
 	Set(key Key, value interface{}) bool
 	Get(key Key) (interface{}, bool)
@@ -11,6 +13,7 @@ type Key string
 type lruCache struct {
 	capacity int
 	queue    List
+	mu       sync.Mutex
 	items    map[Key]*ListItem
 }
 
@@ -23,7 +26,8 @@ func NewCache(capacity int) Cache {
 	return &lruCache{
 		capacity: capacity,
 		queue:    NewList(),
-		items:    make(map[Key]*ListItem, capacity),
+		//mu уже готов к использованию, после объявления присаиваются нулевые значения
+		items: make(map[Key]*ListItem, capacity),
 	}
 }
 
@@ -31,6 +35,9 @@ func NewCache(capacity int) Cache {
 func (cache *lruCache) Set(key Key, value interface{}) bool {
 	var wasInCache bool
 	var itemValue cacheItem
+
+	cache.mu.Lock()         //залочили на запись
+	defer cache.mu.Unlock() //разблочим после
 
 	itemValue.key = key
 	itemValue.value = value
@@ -68,6 +75,10 @@ func (cache *lruCache) Set(key Key, value interface{}) bool {
 
 // Получить значение из кэша по ключу.
 func (cache *lruCache) Get(key Key) (interface{}, bool) {
+
+	cache.mu.Lock()         //залочили на чтение
+	defer cache.mu.Unlock() //отпустили после
+
 	item, wasInCache := cache.items[key]
 
 	if wasInCache {
@@ -81,7 +92,9 @@ func (cache *lruCache) Get(key Key) (interface{}, bool) {
 
 // Очистить кэш.
 func (cache *lruCache) Clear() {
+	cache.mu.Lock()
 	// новые пустые переменные.
 	cache.items = make(map[Key]*ListItem, cache.capacity)
 	cache.queue = NewList()
+	cache.mu.Unlock()
 }
