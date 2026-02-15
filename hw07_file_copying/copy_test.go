@@ -31,13 +31,14 @@ func TestValidation(t *testing.T) {
 
 func TestTempFiles(t *testing.T) {
 	tmpPattern := "/tmp/tempToFile-*"
+	fileFrom := "testdata/input.txt"
 	fileTo := "input_copy.txt"
 
 	t.Run("no temp file", func(t *testing.T) {
 		// подсчет временных файлов до копирования.
 		filesBefore, _ := filepath.Glob(tmpPattern)
 
-		err := Copy("input.txt", fileTo, 0, 0)
+		err := Copy(fileFrom, fileTo, 0, 0)
 
 		filesAfter, _ := filepath.Glob(tmpPattern)
 
