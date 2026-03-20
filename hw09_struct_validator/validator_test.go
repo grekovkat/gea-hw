@@ -3,13 +3,11 @@ package hw09structvalidator
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 )
 
 type UserRole string
 
-// Test the function on different structures and other types.
 type (
 	User struct {
 		ID     string `json:"id" validate:"len:36"`
@@ -37,205 +35,169 @@ type (
 	}
 )
 
+// ожидаемый результат.
+type expectType int
+
+const (
+	expectNil            expectType = iota // ошибок нет.
+	expectValidationErrs                   // ValidationErrors с хотя бы одной записью.
+	expectProgramErr                       // программная ошибка (не ValidationErrors).
+)
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name        string
-		in          interface{}
-		expectedErr error
+		name   string
+		in     interface{}
+		expect expectType
 	}{
-		// 0: валидный User
 		{
-			name: "Valid User",
-			in: User{
-				ID:     "123456789123456789123456789123456789", // 36 символов
-				Name:   "Катя",
-				Age:    37,
-				Email:  "kate@mal.ru",
-				Role:   "admin",
-				Phones: []string{"89183107252", "89183107251"},
-			},
-			expectedErr: nil,
-		},
-		// 1: ID слишком короткий
-		{
-			name: "Short ID",
-			in: User{
-				ID:    "123456789",
-				Age:   37,
-				Email: "kate@mal.ru",
-				Role:  "admin",
-			},
-			expectedErr: ValidationErrors{},
-		},
-		// 2: Age меньше минимума
-		{
-			name: "Age < Min",
-			in: User{
-				ID:    "123456789123456789123456789123456789",
-				Age:   10,
-				Email: "kate@mal.ru",
-				Role:  "admin",
-			},
-			expectedErr: ValidationErrors{},
-		},
-		// 3: Age больше максимума
-		{
-			name: "Age > Max",
-			in: User{
-				ID:    "123456789123456789123456789123456789",
-				Age:   99,
-				Email: "kate@mal.ru",
-				Role:  "admin",
-			},
-			expectedErr: ValidationErrors{},
-		},
-		// 4: Email не соответствует regexp
-		{
-			name: "Email not compile regexp",
-			in: User{
-				ID:    "123456789123456789123456789123456789",
-				Age:   37,
-				Email: "not-an-email",
-				Role:  "admin",
-			},
-			expectedErr: ValidationErrors{},
-		},
-		// 5: Role не входит в множество
-		{
-			name: "Role not in list",
-			in: User{
-				ID:    "123456789123456789123456789123456789",
-				Age:   37,
-				Email: "kate@mal.ru",
-				Role:  "superuser",
-			},
-			expectedErr: ValidationErrors{},
-		},
-		// 6: один из телефонов неверной длины
-		{
-			name: "one phone incorrect",
+			name: "валидный User",
 			in: User{
 				ID:     "123456789123456789123456789123456789",
+				Name:   "Катя",
 				Age:    37,
-				Email:  "kate@mal.ru",
+				Email:  "kate@mail.ru",
 				Role:   "admin",
-				Phones: []string{"123, 89183107251"},
+				Phones: []string{"79991234567", "79997654321"},
 			},
-			expectedErr: ValidationErrors{},
+			expect: expectNil,
 		},
-		// 7: валидный App
 		{
-			name:        "valid App",
-			in:          App{Version: "1.0.0"},
-			expectedErr: nil,
+			name:   "ID слишком короткий",
+			in:     User{ID: "short-id", Age: 37, Email: "kate@mail.ru", Role: "admin"},
+			expect: expectValidationErrs,
 		},
-		// 8: App с неверной длиной Version
 		{
-			name:        "App Version len incorrect",
-			in:          App{Version: "1.0"},
-			expectedErr: ValidationErrors{},
+			name:   "Age меньше минимума",
+			in:     User{ID: "123456789123456789123456789123456789", Age: 16, Email: "kate@mail.ru", Role: "admin"},
+			expect: expectValidationErrs,
 		},
-		// 9: Token — нет тегов validate, всегда nil
 		{
-			name: "no tag validation",
-			in: Token{
-				Header:    []byte("header"),
-				Payload:   []byte("payload"),
-				Signature: []byte("sig"),
-			},
-			expectedErr: nil,
+			name:   "Age больше максимума",
+			in:     User{ID: "123456789123456789123456789123456789", Age: 99, Email: "kate@mail.ru", Role: "admin"},
+			expect: expectValidationErrs,
 		},
-		// 10: валидный Response
 		{
-			name:        "valid Response",
-			in:          Response{Code: 200, Body: "OK"},
-			expectedErr: nil,
+			name:   "Email не соответствует regexp",
+			in:     User{ID: "123456789123456789123456789123456789", Age: 37, Email: "not-an-email", Role: "admin"},
+			expect: expectValidationErrs,
 		},
-		// 11: Response с невалидным кодом
 		{
-			name:        "invalid code Response",
-			in:          Response{Code: 301, Body: "Moved"},
-			expectedErr: ValidationErrors{},
+			name:   "Role не входит в множество",
+			in:     User{ID: "123456789123456789123456789123456789", Age: 37, Email: "kate@mail.ru", Role: "superuser"},
+			expect: expectValidationErrs,
 		},
-		// 12: Response с валидным кодом 404
 		{
-			name:        "valid code Response 400",
-			in:          Response{Code: 404},
-			expectedErr: nil,
-		},
-		// 13: Response с валидным кодом 500
-		{
-			name:        "valid code Response 500",
-			in:          Response{Code: 500},
-			expectedErr: nil,
-		},
-		// 14: несколько ошибок сразу (ID короткий + Age вне диапазона)
-		{
-			name: "multi errors",
+			name: "телефон неверной длины",
 			in: User{
-				ID:    "123",
-				Age:   5,
-				Email: "katemal.ru",
-				Role:  "admincheg",
+				ID: "123456789123456789123456789123456789", Age: 37,
+				Email: "kate@mail.ru", Role: "admin",
+				Phones: []string{"123"},
 			},
-			expectedErr: ValidationErrors{},
+			expect: expectValidationErrs,
 		},
-		// 15: передаём не структуру — ожидаем программную ошибку (не ValidationErrors)
 		{
-			name:        "not a struct",
-			in:          "not a struct",
-			expectedErr: fmt.Errorf("not a struct"),
+			name:   "валидный App",
+			in:     App{Version: "1.0.0"},
+			expect: expectNil,
+		},
+		{
+			name:   "App неверная длина Version",
+			in:     App{Version: "1.0"},
+			expect: expectValidationErrs,
+		},
+		{
+			name:   "Token без тегов validate",
+			in:     Token{Header: []byte("h"), Payload: []byte("p"), Signature: []byte("s")},
+			expect: expectNil,
+		},
+		{
+			name:   "валидный Response 200",
+			in:     Response{Code: 200, Body: "OK"},
+			expect: expectNil,
+		},
+		{
+			name:   "Response невалидный код",
+			in:     Response{Code: 301, Body: "Moved"},
+			expect: expectValidationErrs,
+		},
+		{
+			name:   "валидный Response 404",
+			in:     Response{Code: 404},
+			expect: expectNil,
+		},
+		{
+			name:   "валидный Response 500",
+			in:     Response{Code: 500},
+			expect: expectNil,
+		},
+		{
+			name:   "несколько ошибок ID и Age",
+			in:     User{ID: "bad", Age: 5, Email: "kate@mail.ru", Role: "admin"},
+			expect: expectValidationErrs,
+		},
+		{
+			name:   "не структура",
+			in:     "not a struct",
+			expect: expectProgramErr,
 		},
 	}
 
-	for i, tt := range tests {
-		t.Run(fmt.Sprintf("case %d %s", i, tt.name), func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			tt := tt
 			t.Parallel()
-
-			err := Validate(tt.in)
-
-			// Случай 15: ожидаем программную ошибку, не ValidationErrors
-			if i == 15 {
-				if err == nil {
-					t.Errorf("ожидали ошибку, получили nil")
-				}
-				var ve ValidationErrors
-				if errors.As(err, &ve) {
-					t.Errorf("ожидали программную ошибку, получили ValidationErrors")
-				}
-				return
-			}
-
-			// Ожидаем nil — ошибок быть не должно
-			if tt.expectedErr == nil {
-				if err != nil {
-					t.Errorf("ожидали nil, получили: %v", err)
-				}
-				return
-			}
-
-			// Ожидаем ValidationErrors
-			var ve ValidationErrors
-			if !errors.As(err, &ve) {
-				t.Errorf("ожидали ValidationErrors, получили: %T: %v", err, err)
-				return
-			}
-
-			if len(ve) == 0 {
-				t.Errorf("ValidationErrors пуст, но ожидали хотя бы одну ошибку")
-			}
-
-			// Проверяем что ошибки содержат sentinel errors из пакета
-			for _, validErr := range ve {
-				if validErr.Field == "" {
-					t.Errorf("поле Field не должно быть пустым")
-				}
-				if validErr.Err == nil {
-					t.Errorf("поле Err не должно быть nil")
-				}
-			}
+			assertValidateResult(t, Validate(tt.in), tt.expect)
 		})
+	}
+}
+
+// assertValidateResult проверяет результат Validate согласно ожидаемому типу.
+func assertValidateResult(t *testing.T, err error, expect expectType) {
+	t.Helper()
+
+	switch expect {
+	case expectNil:
+		if err != nil {
+			t.Errorf("ожидали nil, получили: %v", err)
+		}
+
+	case expectProgramErr:
+		if err == nil {
+			t.Errorf("ожидали ошибку, получили nil")
+			return
+		}
+		var ve ValidationErrors
+		if errors.As(err, &ve) {
+			t.Errorf("ожидали программную ошибку, получили ValidationErrors")
+		}
+
+	case expectValidationErrs:
+		assertValidationErrors(t, err)
+	}
+}
+
+// assertValidationErrors проверяет, что err является непустым ValidationErrors
+// с корректно заполненными полями.
+func assertValidationErrors(t *testing.T, err error) {
+	t.Helper()
+
+	var ve ValidationErrors
+	if !errors.As(err, &ve) {
+		t.Errorf("ожидали ValidationErrors, получили: %T: %v", err, err)
+		return
+	}
+	if len(ve) == 0 {
+		t.Error("ValidationErrors пуст, но ожидали хотя бы одну ошибку")
+		return
+	}
+	for _, e := range ve {
+		if e.Field == "" {
+			t.Error("поле Field не должно быть пустым")
+		}
+		if e.Err == nil {
+			t.Error("поле Err не должно быть nil")
+		}
 	}
 }
 
